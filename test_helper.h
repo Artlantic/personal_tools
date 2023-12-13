@@ -16,8 +16,14 @@ struct function_traits {};
 template <typename R, typename... Args>
 struct function_traits<std::function<R(Args...)>> {
     // typedef
+    // typedef typename std::remove_reference<Args...>::type Args1...;
     typedef R result_type;
-    typedef std::tuple<Args...> request_type;
+    // typedef std::tuple<Args...> request_type;
+    typedef std::tuple<typename std::remove_reference<Args>::type...> request_type1;
+
+    typedef std::tuple<typename std::decay_t<Args>...> request_type;
+
+    // using Args_no_reference... = typename std::remove_reference<Args>::type...;
 
     // struct members
     static const size_t nargs = sizeof...(Args);
@@ -39,8 +45,7 @@ struct function_traits<std::function<R(Args...)>> {
                                                                std::vector<std::string> input) {
         std::stringstream ss;
         ss << (input[N - 1]);
-        typename arg<N - 1>::type& v = std::get<N - 1>(t);
-        ss >> v;
+        ss >> const_cast<typename std::tuple_element<N - 1, request_type>::type&>(std::get<N - 1>(t));
         if (N > 1) parse<N - 1>(t, input);
     }
     static void parse(request_type& t, std::vector<std::string> input) { parse<nargs>(t, input); }
@@ -56,26 +61,38 @@ struct function_traits<std::function<R(Args...)>> {
     }
 };
 
-#define TEST_INIT_BEGIN                                                                            \
-    void test_helper_func(std::string name, std::vector<std::string> arg,                          \
-                          std::string& result) {
-#define TEST_INIT_END }
+#define TEST_INIT(name, arg, result)                                                               \
+    std::string _name             = name;                                                          \
+    std::vector<std::string> _arg = arg;                                                           \
+    std::string& _result          = result;
 
-#define CALL_TEST(name, arg, result) test_helper_func(name, arg, result);
-
-#define ADD_TEST_FUNCTION(funcName, func)                                                          \
-    if (funcName == name) {                                                                        \
-        typedef std::function<decltype(func)> ft;                                                  \
-        typedef function_traits<ft> ftt;                                                           \
+#define ADD_TEST_FUNCTION_WITH_TYPE(funcName, funcType, func)                                      \
+    if (funcName == _name) {                                                                       \
+        typedef function_traits<funcType> ftt;                                                     \
         ftt::request_type req;                                                                     \
         ftt::result_type res;                                                                      \
-        if (ftt::nargs > arg.size()) {std::cout<<"invalid param."; return;}                          \
-        ftt::parse(req, arg);                                                                      \
+        if (ftt::nargs > _arg.size()) {                                                            \
+            std::cout << "invalid param.";                                                         \
+            return;                                                                                \
+        }                                                                                          \
+        ftt::parse(req, _arg);                                                                     \
         res = ftt::invoke(func, req);                                                              \
         std::stringstream ss;                                                                      \
         ss << res;                                                                                 \
-        result = ss.str();                                                            \
+        _result = ss.str();                                                                        \
+        return;                                                                                    \
     }
 
+#define ADD_TEST_STD_FUNCTION(funcName, func)                                                      \
+    {                                                                                              \
+        typedef decltype(func) funcType;                                                           \
+        ADD_TEST_FUNCTION_WITH_TYPE(funcName, funcType, func)                                      \
+    }
+
+#define ADD_TEST_FUNCTION(funcName, func)                                                          \
+    {                                                                                              \
+        typedef std::function<decltype(func)> ft;                                                  \
+        ADD_TEST_FUNCTION_WITH_TYPE(funcName, ft, func)                                            \
+    }
 
 } // namespace test_helper
