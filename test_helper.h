@@ -7,7 +7,7 @@
 #include <sstream>
 #include <iomanip>
 
-// 不支持复杂类型参数
+// 不支持复杂类型参数, 必须支持重载 >> <<
 namespace test_helper {
 
 template <typename T>
@@ -15,15 +15,8 @@ struct function_traits {};
 
 template <typename R, typename... Args>
 struct function_traits<std::function<R(Args...)>> {
-    // typedef
-    // typedef typename std::remove_reference<Args...>::type Args1...;
     typedef R result_type;
-    // typedef std::tuple<Args...> request_type;
-    typedef std::tuple<typename std::remove_reference<Args>::type...> request_type1;
-
     typedef std::tuple<typename std::decay_t<Args>...> request_type;
-
-    // using Args_no_reference... = typename std::remove_reference<Args>::type...;
 
     // struct members
     static const size_t nargs = sizeof...(Args);
@@ -72,7 +65,7 @@ struct function_traits<std::function<R(Args...)>> {
         ftt::request_type req;                                                                     \
         ftt::result_type res;                                                                      \
         if (ftt::nargs > _arg.size()) {                                                            \
-            std::cout << "invalid param.";                                                         \
+            _result = "invalid param.";                                                            \
             return;                                                                                \
         }                                                                                          \
         ftt::parse(req, _arg);                                                                     \
